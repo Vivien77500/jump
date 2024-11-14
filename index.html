@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Space Invaders - Trois Lignes Fixes</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: #fff;
+    }
+    .game-container {
+      position: relative;
+      width: 600px;
+      height: 400px;
+      background-color: black;
+      overflow: hidden;
+      border: 2px solid #fff;
+    }
+    #spaceship {
+      position: absolute;
+      bottom: 10px;
+      left: 275px;
+      width: 50px;
+      height: 50px;
+      background-image: url('img2.png');
+      background-size: cover;
+    }
+    .invader {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background-size: cover;
+    }
+    .bullet {
+      position: absolute;
+      width: 5px;
+      height: 20px;
+      background-color: #fff;
+    }
+    .score-board {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <div id="spaceship"></div>
+    <div class="score-board">Score: <span id="score">0</span></div>
+  </div>
+
+  <script>
+    const spaceship = document.getElementById("spaceship");
+    const gameContainer = document.querySelector(".game-container");
+    const scoreDisplay = document.getElementById("score");
+    const invaderImages = ['1.png', '2.png', '3.png']; // Images d'envahisseurs
+    let score = 0;
+    let invaders = [];
+    let isGameOver = false;
+    let invaderDirection = 1; // 1 pour droite, -1 pour gauche
+    const invaderSpeed = 20; // Vitesse de déplacement des envahisseurs latéralement
+    const invaderStep = 5; // Pas de déplacement des envahisseurs
+
+    // Déplacement de la navette et tir
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft" && spaceship.offsetLeft > 0) {
+        spaceship.style.left = spaceship.offsetLeft - 20 + "px";
+      } else if (event.key === "ArrowRight" && spaceship.offsetLeft < gameContainer.offsetWidth - spaceship.offsetWidth) {
+        spaceship.style.left = spaceship.offsetLeft + 20 + "px";
+      } else if (event.key === " " || event.key === "Spacebar") {
+        shoot();
+      }
+    });
+
+    // Fonction pour tirer une balle
+    function shoot() {
+      const bullet = document.createElement("div");
+      bullet.classList.add("bullet");
+      bullet.style.left = spaceship.offsetLeft + spaceship.offsetWidth / 2 - 2.5 + "px";
+      bullet.style.bottom = "60px";
+      gameContainer.appendChild(bullet);
+
+      const bulletInterval = setInterval(() => {
+        bullet.style.bottom = parseInt(bullet.style.bottom) + 5 + "px";
+
+        // Vérifier collision avec les envahisseurs
+        invaders.forEach((invader, index) => {
+          if (isCollision(bullet, invader.element)) {
+            bullet.remove();
+            invader.element.remove();
+            invaders.splice(index, 1);
+            clearInterval(bulletInterval);
+            score += 10;
+            scoreDisplay.innerText = score;
+
+            // Gagner le jeu si tous les envahisseurs sont éliminés
+            if (invaders.length === 0) {
+              alert("Félicitations ! Vous avez gagné ! Score: " + score);
+              window.location.reload();
+            }
+          }
+        });
+
+        if (parseInt(bullet.style.bottom) > gameContainer.offsetHeight) {
+          clearInterval(bulletInterval);
+          bullet.remove();
+        }
+      }, 10);
+    }
+
+    // Fonction pour créer trois lignes d'envahisseurs
+    function spawnInvaders() {
+      const rows = 3;
+      const columns = 9;
+      const spacing = 50;
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < columns; col++) {
+          const invader = document.createElement("div");
+          invader.classList.add("invader");
+          invader.style.top = row * spacing + "px";
+          invader.style.left = col * spacing + "px";
+          invader.style.backgroundImage = `url('${invaderImages[(row + col) % invaderImages.length]}')`;
+          gameContainer.appendChild(invader);
+          invaders.push({ element: invader });
+        }
+      }
+    }
+
+    // Fonction pour déplacer les envahisseurs latéralement
+    function moveInvaders() {
+      const containerWidth = gameContainer.offsetWidth;
+      let rightmostPosition = 0;
+      let leftmostPosition = containerWidth;
+
+      invaders.forEach(invader => {
+        const invaderElement = invader.element;
+        const currentLeft = parseInt(invaderElement.style.left);
+
+        // Mettre à jour les positions les plus extrêmes
+        rightmostPosition = Math.max(rightmostPosition, currentLeft + 40); // 40 = largeur de l'envahisseur
+        leftmostPosition = Math.min(leftmostPosition, currentLeft);
+      });
+
+      // Inverser la direction si un envahisseur atteint le bord
+      if (rightmostPosition >= containerWidth || leftmostPosition <= 0) {
+        invaderDirection *= -1;
+      }
+
+      // Appliquer le déplacement latéral
+      invaders.forEach(invader => {
+        const invaderElement = invader.element;
+        invaderElement.style.left = parseInt(invaderElement.style.left) + invaderDirection * invaderStep + "px";
+      });
+    }
+
+    // Vérification de collision
+    function isCollision(bullet, target) {
+      const bulletRect = bullet.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      return !(
+        bulletRect.top > targetRect.bottom ||
+        bulletRect.bottom < targetRect.top ||
+        bulletRect.left > targetRect.right ||
+        bulletRect.right < targetRect.left
+      );
+    }
+
+    // Lancer les envahisseurs et leur mouvement
+    spawnInvaders();
+    setInterval(() => {
+      if (!isGameOver) moveInvaders();
+    }, invaderSpeed);
+  </script>
+</body>
+</html>
