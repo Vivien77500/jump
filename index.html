@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Space Invaders - Niveaux Progressifs avec Tirs</title>
+  <style>
+    /* Style de base */
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: #fff;
+      margin: 0;
+    }
+
+    /* Conteneur pour centrer le jeu et le tableau des scores */
+    .main-container {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .game-container {
+      position: relative;
+      width: 600px;
+      height: 400px;
+      background-color: black;
+      overflow: hidden;
+      border: 2px solid #fff;
+    }
+    
+    #spaceship {
+      position: absolute;
+      bottom: 10px;
+      left: 275px;
+      width: 50px;
+      height: 50px;
+      background-image: url('img2.png');
+      background-size: cover;
+    }
+    
+    .invader {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background-size: cover;
+    }
+    
+    .bullet, .enemy-bullet {
+      position: absolute;
+      width: 5px;
+      height: 20px;
+      background-color: #fff;
+    }
+    
+    .enemy-bullet {
+      background-color: red;
+    }
+    
+    .score-board {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    
+    .scores-container {
+      width: 200px;
+      height: 400px;
+      padding: 10px;
+      border: 2px solid #fff;
+      background-color: #222;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .scores-list {
+      list-style: none;
+      padding: 0;
+      font-size: 16px;
+      color: #fff;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <!-- Conteneur principal pour centrer le jeu et le tableau des scores -->
+  <div class="main-container">
+    <div class="game-container" id="gameContainer">
+      <div id="spaceship"></div>
+      <div class="score-board">Score: <span id="score">0</span> | Niveau: <span id="level">1</span></div>
+    </div>
+
+    <div class="scores-container">
+      <h3>Tableau des Scores</h3>
+      <ul class="scores-list" id="scoresList"></ul>
+    </div>
+  </div>
+
+  <!-- Script du jeu Space Invaders avec tableau des scores -->
+  <script>
+    const spaceship = document.getElementById("spaceship");
+    const gameContainer = document.querySelector(".game-container");
+    const scoreDisplay = document.getElementById("score");
+    const levelDisplay = document.getElementById("level");
+    const scoresList = document.getElementById("scoresList");
+    const invaderImages = ['1.png', '2.png', '3.png'];
+    let score = 0;
+    let level = 1;
+    let invaders = [];
+    let invaderDirection = 1;
+    const invaderSpeed = 20;
+    const invaderStep = 5;
+
+    let scores = JSON.parse(localStorage.getItem("scores")) || [];
+
+    function displayScores() {
+      scoresList.innerHTML = "";
+      scores
+        .sort((a, b) => b.score - a.score)
+        .forEach((entry, index) => {
+          const li = document.createElement("li");
+          li.textContent = `${index + 1}. ${entry.name}: ${entry.score}`;
+          scoresList.appendChild(li);
+        });
+    }
+
+    function saveScore() {
+      const name = prompt("Entrez votre nom :");
+      if (name) {
+        scores.push({ name, score });
+        localStorage.setItem("scores", JSON.stringify(scores));
+        displayScores();
+      }
+    }
+
+    function gameOver() {
+      alert("Game Over! Votre score: " + score);
+      saveScore();
+      score = 0;
+      level = 1;
+      window.location.reload();
+    }
+
+    displayScores();
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft" && spaceship.offsetLeft > 0) {
+        spaceship.style.left = spaceship.offsetLeft - 20 + "px";
+      } else if (event.key === "ArrowRight" && spaceship.offsetLeft < gameContainer.offsetWidth - spaceship.offsetWidth) {
+        spaceship.style.left = spaceship.offsetLeft + 20 + "px";
+      } else if (event.key === " " || event.key === "Spacebar") {
+        shoot();
+      }
+    });
+
+    function shoot() {
+      const bullet = document.createElement("div");
+      bullet.classList.add("bullet");
+      bullet.style.left = spaceship.offsetLeft + spaceship.offsetWidth / 2 - 2.5 + "px";
+      bullet.style.bottom = "60px";
+      gameContainer.appendChild(bullet);
+
+      const bulletInterval = setInterval(() => {
+        bullet.style.bottom = parseInt(bullet.style.bottom) + 5 + "px";
+
+        invaders.forEach((invader, index) => {
+          if (isCollision(bullet, invader.element)) {
+            bullet.remove();
+            invader.element.remove();
+            invaders.splice(index, 1);
+            clearInterval(bulletInterval);
+            score += 10;
+            scoreDisplay.innerText = score;
+
+            if (invaders.length === 0) {
+              level++;
+              levelDisplay.innerText = level;
+              spawnInvaders();
+            }
+          }
+        });
+
+        if (parseInt(bullet.style.bottom) > gameContainer.offsetHeight) {
+          clearInterval(bulletInterval);
+          bullet.remove();
+        }
+      }, 10);
+    }
+
+    function spawnInvaders() {
+      invaderDirection = 1;
+      const rows = 3;
+      const columns = 9;
+      const spacing = 50;
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < columns; col++) {
+          const invader = document.createElement("div");
+          invader.classList.add("invader");
+          invader.style.top = row * spacing + "px";
+          invader.style.left = col * spacing + "px";
+          invader.style.backgroundImage = `url('${invaderImages[(row + col) % invaderImages.length]}')`;
+          gameContainer.appendChild(invader);
+          invaders.push({ element: invader, canShoot: row === rows - 1 });
+        }
+      }
+
+      setInterval(() => {
+        invaders.forEach(invader => {
+          if (invader.canShoot && Math.random() < 0.1 * level) {
+            enemyShoot(invader.element);
+          }
+        });
+      }, 1000);
+    }
+
+    function enemyShoot(invader) {
+      const bullet = document.createElement("div");
+      bullet.classList.add("enemy-bullet");
+      bullet.style.left = parseInt(invader.style.left) + 15 + "px";
+      bullet.style.top = parseInt(invader.style.top) + "px";
+      gameContainer.appendChild(bullet);
+
+      const bulletInterval = setInterval(() => {
+        bullet.style.top = parseInt(bullet.style.top) + 5 + "px";
+
+        if (isCollision(bullet, spaceship)) {
+          clearInterval(bulletInterval);
+          bullet.remove();
+          gameOver();
+        }
+
+        if (parseInt(bullet.style.top) > gameContainer.offsetHeight) {
+          clearInterval(bulletInterval);
+          bullet.remove();
+        }
+      }, 10);
+    }
+
+    function moveInvaders() {
+      const containerWidth = gameContainer.offsetWidth;
+      let rightmostPosition = 0;
+      let leftmostPosition = containerWidth;
+
+      invaders.forEach(invader => {
+        const invaderElement = invader.element;
+        const currentLeft = parseInt(invaderElement.style.left);
+
+        rightmostPosition = Math.max(rightmostPosition, currentLeft + 40);
+        leftmostPosition = Math.min(leftmostPosition, currentLeft);
+      });
+
+      if (rightmostPosition >= containerWidth && invaderDirection === 1) {
+        invaderDirection = -1;
+      } else if (leftmostPosition <= 0 && invaderDirection === -1) {
+        invaderDirection = 1;
+      }
+
+      invaders.forEach(invader => {
+        const invaderElement = invader.element;
+        invaderElement.style.left = parseInt(invaderElement.style.left) + invaderDirection * invaderStep + "px";
+      });
+    }
+
+    function isCollision(bullet, target) {
+      const bulletRect = bullet.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      return !(
+        bulletRect.top > targetRect.bottom ||
+        bulletRect.bottom < targetRect.top ||
+        bulletRect.left > targetRect.right ||
+        bulletRect.right < targetRect.left
+      );
+    }
+
+    spawnInvaders();
+    setInterval(() => {
+      if (invaders.length > 0) moveInvaders();
+    }, invaderSpeed);
+  </script>
+</body>
+</html>
